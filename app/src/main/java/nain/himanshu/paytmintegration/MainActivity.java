@@ -6,14 +6,21 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Toast;
 
+import com.androidnetworking.AndroidNetworking;
+import com.androidnetworking.common.Priority;
+import com.androidnetworking.error.ANError;
+import com.androidnetworking.interfaces.JSONObjectRequestListener;
 import com.paytm.pgsdk.PaytmOrder;
 import com.paytm.pgsdk.PaytmPGService;
 import com.paytm.pgsdk.PaytmPaymentTransactionCallback;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.HashMap;
-import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,23 +28,18 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        AndroidNetworking.initialize(this);
 
         if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS}, 101);
         }
-        initPaytmPG();
+        preparePaymentOptions();
     }
 
-    private void initPaytmPG()
+    private void preparePaymentOptions()
     {
-
-        PaytmPGService Service = PaytmPGService.getStagingService();
-
-        //production
-        //PaytmPGService Service = PaytmPGService.getProductionService();
-
         //ORDER ID GENERATE SELF
-        String orderId = "order1";
+        String orderId = "order2";
 
         //SAME AS USER ID FOR OUR APP
         String userId = "ownvwevbvn";
@@ -50,10 +52,7 @@ public class MainActivity extends AppCompatActivity {
 
         String amount = "100";
 
-        // GENERATE THIS ON SERVER SIDE
-        String paytmChecksum = "w2QDRMgp1234567JEAPCIOmNgQvsi+BhpqijfM9KvFfRiPmGSt3Ddzw+oTaGCLneJwxFFq5mqTMwJXdQE2EzK4px2xruDqKZjHupz9yXev4=";
-
-        HashMap<String, String> paramMap = new HashMap<>();
+        final HashMap<String, String> paramMap = new HashMap<>();
 
         paramMap.put( "MID" , getString(R.string.paytm_test_MID));
         paramMap.put( "ORDER_ID" , orderId);
@@ -70,7 +69,43 @@ public class MainActivity extends AppCompatActivity {
         paramMap.put( "WEBSITE" , "WEBSTAGING");
         paramMap.put( "INDUSTRY_TYPE_ID" , "Retail");
         paramMap.put( "CALLBACK_URL", CallbackUrl);
-        paramMap.put( "CHECKSUMHASH" , paytmChecksum);
+
+        AndroidNetworking.post(Config.CHECKSUM_GENERATION)
+                .setPriority(Priority.MEDIUM)
+                .addJSONObjectBody(new JSONObject(paramMap))
+                .setTag("CHECKSUM GENERATION")
+                .build()
+                .getAsJSONObject(new JSONObjectRequestListener() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+                        try {
+                            if(response.getBoolean("success")){
+
+                                JSONObject cObj = response.getJSONObject("checksum");
+                                paramMap.put( "CHECKSUMHASH" , cObj.getString("CHECKSUMHASH"));
+
+                                startOrder(paramMap);
+
+                            }else {
+
+                            }
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    @Override
+                    public void onError(ANError anError) {
+                        Toast.makeText(getApplicationContext(), anError.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    private void startOrder(HashMap<String,String> paramMap) {
+        PaytmPGService Service = PaytmPGService.getStagingService();
+
+        //production
+        //PaytmPGService Service = PaytmPGService.getProductionService();
 
         PaytmOrder Order = new PaytmOrder(paramMap);
 
@@ -79,6 +114,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onTransactionResponse(Bundle inResponse) {
 
+
+                Log.i("TRANSACTION MESSAGE", inResponse.toString());
                 Toast.makeText(getApplicationContext(), "Payment Transaction response " + inResponse.toString(), Toast.LENGTH_LONG).show();
 
             }
@@ -113,6 +150,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(getApplicationContext(), "Transaction Cancelled" + inResponse.toString(), Toast.LENGTH_LONG).show();
             }
         });
+
     }
 
 }

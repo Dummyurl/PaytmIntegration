@@ -29,4 +29,5 @@ dependencies {
     implementation('com.paytm:pgplussdk:1.2.3') {
         transitive = true;
     }
+    implementation 'com.amitshekhar.android:android-networking:1.0.2'
 }
