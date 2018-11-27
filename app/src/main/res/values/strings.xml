@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">PaytmIntegration</string>
+    <string name="paytm_test_MID">mzubrP51991020513602</string>
+    <string name="paytm_secret_test_key">dd4S0ONl6dRbP0#p</string>
+</resources>
